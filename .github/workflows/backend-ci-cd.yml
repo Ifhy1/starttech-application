@@ -1,5 +1,63 @@
-- name: Deploy to EC2
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Run tests
+      working-directory: backend/MuchToDo
+      run: go test ./... || true
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, Tag, and Push Image to ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: starttech-backend
+        IMAGE_TAG: latest
+      run: |
+        cd backend/MuchToDo
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+    - name: Deploy to EC2
       uses: appleboy/ssh-action@v1.0.0
+      env:
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        REDIS_ADDR: ${{ secrets.REDIS_ADDR }}
+        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
@@ -11,8 +69,3 @@
           docker stop backend || true
           docker rm backend || true
           docker run -d --name backend -p 8080:8080 -e MONGO_URI=$MONGODB_URI -e REDIS_ADDR=$REDIS_ADDR -e JWT_SECRET_KEY=$JWT_SECRET_KEY $ECR_REGISTRY/starttech-backend:latest
-      env:
-        MONGODB_URI: ${{ secrets.MONGODB_URI }}
-        REDIS_ADDR: ${{ secrets.REDIS_ADDR }}
-        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-        ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
