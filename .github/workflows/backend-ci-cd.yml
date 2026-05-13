@@ -65,7 +65,7 @@ jobs:
           docker run -d \
             --name backend \
             -p 8080:8080 \
-            -e MONGO_URI=${{ secrets.MONGO_URI }} \
+            -e MONGO_URI=${{ secrets.MONGODB_URI }} \
             -e REDIS_ADDR=${{ secrets.REDIS_ADDR }} \
             -e JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }} \
             ${{ secrets.ECR_REGISTRY }}/starttech-backend:latest
