@@ -38,7 +38,6 @@ Triggers automatically on push to main when backend files change:
 
 ## Tech Stack
 
-sorry change this build cause it looks weird on github 
 
 ```markdown
 | Layer | Technology |
